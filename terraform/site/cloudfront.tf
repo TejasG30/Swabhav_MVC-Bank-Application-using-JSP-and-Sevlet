@@ -1,6 +1,6 @@
 resource "aws_cloudfront_origin_access_control" "oac" {
-  name                              = "s3-oac"
-  description                       = "Origin Access Control for S3 static website"
+  name                              = "s3-bankapp-devops"
+  description                       = "Origin Access Control for S3 bankapp website"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
@@ -8,7 +8,7 @@ resource "aws_cloudfront_origin_access_control" "oac" {
 
 resource "aws_cloudfront_distribution" "cdn" {
   enabled             = true
-  default_root_object = "index.html"
+  default_root_object = "index.jsp"
 
   origin {
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
