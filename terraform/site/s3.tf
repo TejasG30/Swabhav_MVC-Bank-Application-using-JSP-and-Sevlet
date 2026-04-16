@@ -1,7 +1,8 @@
 resource "aws_s3_bucket" "site" {
-  bucket = "sans-devops-static-site"
+  bucket = "devopsbankapp-backend"
 }
 
+# Block ALL public access 
 resource "aws_s3_bucket_public_access_block" "public" {
   bucket = aws_s3_bucket.site.id
 
@@ -11,39 +12,35 @@ resource "aws_s3_bucket_public_access_block" "public" {
   restrict_public_buckets = true
 }
 
-resource "aws_s3_bucket_website_configuration" "site" {
+# CloudFront to access S3
+resource "aws_s3_bucket_policy" "cloudfront_access" {
   bucket = aws_s3_bucket.site.id
 
-  index_document {
-    suffix = "index.html"
-  }
-}
+  depends_on = [
+    aws_cloudfront_distribution.cdn
+  ]
 
-data "aws_iam_policy_document" "s3_policy" {
-  statement {
-    sid    = "AllowCloudFrontRead"
-    effect = "Allow"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid = "AllowCloudFrontAccess"
+        Effect = "Allow"
 
-    principals {
-      type        = "Service"
-      identifiers = ["cloudfront.amazonaws.com"]
-    }
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        }
 
-    actions = ["s3:GetObject"]
+        Action = "s3:GetObject"
 
-    resources = [
-      "${aws_s3_bucket.site.arn}/*"
+        Resource = "${aws_s3_bucket.site.arn}/*"
+
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.cdn.arn
+          }
+        }
+      }
     ]
-
-    condition {
-      test     = "StringEquals"
-      variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.cdn.arn]
-    }
-  }
-}
-
-resource "aws_s3_bucket_policy" "site_policy" {
-  bucket = aws_s3_bucket.site.id
-  policy = data.aws_iam_policy_document.s3_policy.json
+  })
 }
