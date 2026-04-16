@@ -1,60 +1,66 @@
 pipeline {
     agent any
 
+    tools {
+        jdk 'jdk17'
+        maven 'maven3'
+    }
+
     environment {
-        AWS_DEFAULT_REGION = "us-east-1"
-        S3_BUCKET = "sans-devops-static-site"
+        APP_NAME = 'bankapp'
     }
 
     stages {
 
-        stage('Validate') {
+        stage('Checkout') {
             steps {
-                sh 'ls -l src'
+                git branch: 'main',
+                    url: 'https://github.com/TejasG30/Swabhav_MVC-Bank-Application-using-JSP-and-Sevlet.git',
+                    credentialsId: 'github-pat'
             }
         }
 
-        stage('Test - SonarQube') {
+        stage('Validate') {
+            steps {
+                sh 'ls -l'
+            }
+        }
+
+        // 🔥 Build Java App
+        stage('Build (Maven)') {
+            steps {
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+
+        // 🔥 SonarQube for Java
+        stage('SonarQube Analysis') {
             steps {
                 script {
-                    def scannerHome = tool 'sonar'
-                    withSonarQubeEnv('sonar') {
+                    def scannerHome = tool 'sonar-scanner'
+                    withSonarQubeEnv('sonarqube') {
                         sh """
-                          ${scannerHome}/bin/sonar-scanner \
-                          -Dsonar.projectKey=devops-static-site \
-                          -Dsonar.projectName=DevOps-Static-Site \
-                          -Dsonar.sources=src
+                        mvn sonar:sonar \
+                        -Dsonar.projectKey=bankapp \
+                        -Dsonar.projectName=BankApp
                         """
                     }
                 }
             }
         }
 
-        stage('Terraform Init') {
+        // 🔥 Archive artifact
+        stage('Archive Artifact') {
             steps {
-                sh 'terraform -chdir=terraform/site init'
+                archiveArtifacts artifacts: 'target/*.war', fingerprint: true
             }
         }
 
-        stage('Terraform Apply') {
-            steps {
-                sh 'terraform -chdir=terraform/site apply -auto-approve'
-            }
-        }
-
-        stage('Deploy to S3') {
-            steps {
-                sh 'aws s3 sync src/ s3://$S3_BUCKET --delete'
-            }
-        }
-
-        /* 🔥 NEW STAGE – DO NOT MODIFY ANYTHING ABOVE */
-        stage('Invalidate CloudFront Cache') {
+        // 🔥 Deploy to Tomcat (local example)
+        stage('Deploy to Tomcat') {
             steps {
                 sh '''
-                  aws cloudfront create-invalidation \
-                  --distribution-id E2WGKZHL0DRIXZ \
-                  --paths "/*"
+                cp target/*.war /opt/tomcat/webapps/
                 '''
             }
         }
